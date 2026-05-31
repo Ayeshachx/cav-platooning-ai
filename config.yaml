@@ -1,0 +1,177 @@
+# ══════════════════════════════════════════════════════════════════════════════
+# config.yaml
+# CAV Platooning Project – Master Configuration File
+#
+# All runtime parameters live here. The Python code reads this file at startup
+# via SimulationManager. DO NOT hard-code any of these values in source code.
+# ══════════════════════════════════════════════════════════════════════════════
+
+# ── Simulation ────────────────────────────────────────────────────────────────
+simulation:
+  # Number of CAV vehicles in the platoon (1 – 10)
+
+  num_vehicles: 7
+
+  # Maximum allowed speed in m/s  (33.33 m/s = 120 km/h)
+  max_speed: 22.0
+
+  # SUMO simulation step size in seconds (must match platoon.sumocfg)
+  step_size: 0.1
+
+  # Total simulation duration in seconds per episode
+  duration: 1800
+
+  # Random seed for reproducibility (numpy + random + SUMO)
+  seed: 42
+
+  # Max steps per training episode (shorter = faster learning feedback)
+  train_episode_steps: 2000
+
+  # Number of training episodes  (used by train.py)
+  num_episodes: 500
+
+  # Target cruising speed for the platoon leader in m/s  (90 km/h)
+  target_speed: 12.0
+
+  # Run with GUI (true = sumo-gui, false = sumo headless for faster training)
+  gui: true
+
+# ── SUMO / TraCI ──────────────────────────────────────────────────────────────
+sumo:
+  # Path to SUMO config file (relative to project root)
+  config_file: sumo_network/platoon.sumocfg
+
+  # Path to the generated road network file
+  net_file: sumo_network/highway.net.xml
+
+  # Path to the route definitions file
+  route_file: sumo_network/platoon.rou.xml
+
+  # TraCI TCP port (change if 8813 is already in use)
+  port: 8813
+
+  # Seconds to wait for SUMO to launch before timeout
+  launch_timeout: 30
+
+  # SUMO binary (sumo-gui or sumo). Overridden by simulation.gui flag.
+  # binary: sumo-gui
+
+# ── Safety Module ─────────────────────────────────────────────────────────────
+safety:
+  # Minimum safe gap in metres before safety override triggers (FR-10)
+  min_safe_distance: 2.0
+
+  # Emergency deceleration in m/s² (negative = deceleration) (FR-11)
+  max_deceleration: -4.5
+
+  # Time-To-Collision threshold in seconds (second override condition)
+  ttc_threshold: 1.5
+
+  # Reward penalty given to AI agent when override activates (FR-12)
+  override_penalty: -100.0
+
+  # Reward penalty on collision detection (FR-21)
+  collision_penalty: -200.0
+
+# ── AI Model ──────────────────────────────────────────────────────────────────
+ai:
+  # --- DQN Hyperparameters (used when ai.mode = "dqn") ---
+
+  # Adam optimizer learning rate
+  learning_rate: 0.0005
+
+  # Bellman discount factor  γ  (future reward weight)
+  gamma: 0.95
+
+  # Epsilon-greedy: starting exploration probability
+  epsilon_start: 1.0
+
+  # Epsilon-greedy: minimum exploration probability
+  epsilon_end: 0.01
+
+  # Epsilon decay per episode: ε ← max(ε × decay, ε_end)
+  epsilon_decay: 0.990
+
+  # Experience replay buffer maximum size
+  replay_buffer_size: 10000
+
+  # Mini-batch size for training updates
+  batch_size: 64
+
+  # How often to copy online → target network (in steps)
+  target_update_freq: 100
+
+  # Neural network hidden layer sizes  [layer1, layer2, layer3]
+  hidden_layers: [64, 64, 32]
+
+  # State vector dimension (gap, rel_speed, ego_speed, leader_speed)
+  state_dim: 4
+
+  # Action space size (ACCELERATE=0, MAINTAIN=1, BRAKE=2)
+  action_dim: 3
+
+  # Speed delta applied per action step in m/s
+  speed_delta: 2.0
+
+  # --- Rule-based controller parameters (used when ai.mode = "rule_based") ---
+  # Target following gap in metres
+  target_gap: 12.0
+
+  # Proportional gain for gap error  (speed_cmd = target_speed - kp * gap_error)
+  kp: 0.5
+
+  # Maximum speed correction per step in m/s
+  max_correction: 3.0
+
+  # AI mode: "rule_based" or "dqn"
+  mode: "dqn"
+
+# ── Reward Function ────────────────────────────────────────────────────────────
+reward:
+  # Reward weights  (see SRS §4.2.6 and SDD §5.1)
+  # Gap zones (metres):  danger < 2 | caution 2-5 | target 5-15 | warning 15-30 | far > 30
+
+  # Bonus per step when gap is in target zone (5 – 15 m)
+  target_zone_bonus: 20.0
+
+  # Maximum bonus for perfect gap maintenance (gap == target_gap)
+  perfect_gap_bonus: 50.0
+
+  # Penalty per step in caution zone (2 – 5 m)
+  caution_penalty: -3.0
+
+  # Penalty per step in warning zone (15 – 30 m)
+  warning_penalty: -1.0
+
+  # Penalty per step when gap > 30 m (platoon dissolving)
+  far_penalty: -2.0
+
+  # Bonus for speed-matching with leader
+  speed_match_bonus: 10.0
+
+# ── Data Logging ──────────────────────────────────────────────────────────────
+logging:
+  # Directory for output CSV files and summary reports (relative to project root)
+  output_dir: output/
+
+  # Directory for saved AI model checkpoints
+  model_dir: models/
+
+  # Flush in-memory buffer to CSV every N steps (prevents data loss)
+  flush_interval: 1000
+
+  # Save model checkpoint every N episodes
+  checkpoint_interval: 100
+
+  # Print step info to console every N steps (0 = every step)
+  console_interval: 50
+
+# ── Traffic Generation ─────────────────────────────────────────────────────────
+traffic:
+  # Rogue vehicle behavior profile: "passive" or "aggressive"
+  # (determines which vType is used: rogue_normal vs rogue_aggr)
+  profile: aggressive
+
+  # Target traffic density in vehicles per hour
+  # (used by traffic_gen.py for dynamic injection beyond platoon.rou.xml)
+  density: 200
